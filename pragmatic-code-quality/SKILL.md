@@ -2,12 +2,12 @@
 name: pragmatic-code-quality
 description: >
   Apply Pragmatic Programmer principles to raise code quality during planning and multi-class generation.
-  Use this skill whenever Claude Code is in planning mode (designing architecture, outlining class structure,
-  mapping out modules), OR when about to generate multiple classes, files, or services in a single session.
-  Trigger this skill when the user asks to "build out", "scaffold", "create the structure for", "implement
-  the full feature", "generate the classes for", or similar multi-artifact tasks — especially in .NET, C#,
-  TypeScript, Vue, or any layered architecture. This skill helps Claude catch DRY violations, weak cohesion,
-  and structural code smells *before* they are written, not after.
+  TRIGGER AUTOMATICALLY (without user asking) whenever: (1) entering plan mode, (2) about to generate or
+  modify 2+ files/classes in a single task, (3) creating new services, controllers, DTOs, or model classes,
+  (4) scaffolding features or implementing approved plans. Run Phase 1 (Design Review) BEFORE writing code,
+  and Phase 4 (Post-Generation Self-Review) AFTER writing code. For single-file edits, apply the Single-File
+  Lint Check silently. This skill should be treated as a built-in quality gate, not an on-demand tool.
+  IMPORTANT: Do not skip this skill during code generation even if the user does not explicitly invoke it.
 ---
 
 # Pragmatic Code Quality
@@ -24,10 +24,25 @@ been fully thought through. This skill bakes in a brief but deliberate reflectio
 
 ## When This Skill Applies
 
+**This skill is a quality gate, not an on-demand tool. It triggers automatically.**
+
 Activate this workflow whenever you are:
 
 1. **In planning mode** — designing classes, modules, or service boundaries before writing
 2. **Generating multiple files/classes at once** — 2 or more classes being written in the same task
+3. **Implementing an approved plan** — translating a plan into code across multiple files
+4. **Creating new services, controllers, models, or DTOs** — even if only one file, if it participates in a multi-class system
+
+### Auto-Trigger Checklist
+
+Before writing code, ask yourself:
+- Am I about to create or modify 2+ files? → **Run Phase 1 before writing, Phase 4 after.**
+- Am I implementing a plan with multiple phases? → **Run Phase 1 at the start of each phase.**
+- Am I editing a single file? → **Apply Single-File Lint Check silently before committing the edit.**
+
+The goal: every code generation pass gets at least a lightweight quality check. Phase 1 and Phase 4
+do not need to be verbose — a few sentences per check is enough. The value is in *doing the pass*,
+not in writing a report.
 
 If only editing a single existing file, skip to the [Single-File Lint Check](#single-file-lint-check) at the end.
 
@@ -153,6 +168,15 @@ When writing code, apply these rules throughout:
 - **Small methods.** If a method exceeds ~35 lines, it is a candidate for extraction. This accounts for whitespace and blank lines used for readability between logical blocks — count intent, not formatting.
 - **Minimal surface area.** Make things private by default. Only expose what callers actually need.
 - **No surprise side effects.** A method named `GetUser` should not also update a timestamp. Side effects belong in explicitly named methods.
+- **Constructors must not trigger behavior.** Constructors initialize state — they do not call async methods,
+  hit the network, create files, or start background work. If a class needs setup that involves I/O or async
+  operations, expose an explicit `InitializeAsync()` method. Fire-and-forget async calls in constructors
+  create race conditions and make the class impossible to test reliably.
+- **Name your serialization shapes.** When building objects to serialize for API calls or external boundaries,
+  watch for anonymous objects (`new { Name = ..., Volume = ... }`). An anonymous object is an invisible,
+  unreferenceable, unvalidatable implicit DTO. If you use the same shape twice, or the shape has more than
+  3-4 properties, make it a named type. This gives you one inspectable object at the boundary — easier to
+  debug, validate, and reuse. One anonymous object used once with a few fields is fine; two or more is a smell.
 - **Don't outrun your headlights.** When generating multiple classes, produce the core class first and
   confirm the interface feels right before continuing to the dependent classes. Sprinting through 6 files
   speculatively and getting the shape wrong means 6 files to revisit. Take the first step, check in, then proceed.
@@ -169,6 +193,8 @@ Read each class and ask:
 - [ ] Are there method chains that reach through multiple objects?
 - [ ] Are there callers extracting state from objects to make decisions?
 - [ ] Are concrete classes directly instantiated inside business logic?
+- [ ] Do any constructors trigger side effects (async calls, I/O, network, file creation)?
+- [ ] Are there anonymous serialization objects reused across methods or with 4+ properties?
 
 If any box is checked, fix it before responding. If the fix would be significant, note it to the user and explain what you changed and why.
 
@@ -180,6 +206,39 @@ For single-file edits, apply a lighter version. Before submitting changes, scan 
 - Any logic that is being duplicated from elsewhere in the file
 - Methods longer than ~35 lines that could be extracted
 - Any `tell, don't ask` violations introduced by your changes
+
+---
+
+## Cross-Reference: Guard Tests
+
+This skill works alongside the **guard-tests** skill. When implementing features or fixing bugs:
+
+### Tests Are Part of the Deliverable
+
+The guard-tests skill ensures every bug fix, feature, and improvement is protected by tests. When pragmatic-code-quality activates for planning or generation, guard-tests activates in parallel to ensure:
+
+- Bug fixes include a regression test that reproduces the bug scenario
+- Features include tests covering happy path, edge cases, and error handling
+- Refactors are preceded by characterization tests that pin existing behavior
+
+### Testability Validates Design
+
+Well-designed code (following DRY, Orthogonality, Tell Don't Ask) is naturally easier to test. If you're struggling to write tests, revisit the Phase 1 design review — the friction often indicates a principle violation.
+
+| Hard to Test | Likely Principle Violated |
+|--------------|---------------------------|
+| Can't isolate the unit | Orthogonality — too many concerns mixed |
+| Need to mock 6+ dependencies | Decomposition threshold exceeded |
+| Must reach through object chains | Law of Demeter violation |
+| Test requires complex setup | Tell, Don't Ask — logic in wrong place |
+
+### Workflow
+
+1. **Plan** with pragmatic-code-quality (design review, tracer bullet outline)
+2. **Write** production code following generation rules
+3. **Guard** with tests per guard-tests skill
+4. **Review** both code and tests before marking complete
+
 
 ---
 
