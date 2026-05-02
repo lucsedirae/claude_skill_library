@@ -22,7 +22,27 @@ Apply the same rule recursively to nested sublists: unordered sub-items can be d
 
 Skip any items already marked complete (`[x]` or `[X]`).
 
-## Step 3: Execute Each Task
+## Step 3: Assess Task Complexity
+
+Before executing anything, review every uncompleted task and judge its scope. Flag any task that would require more than a few basic implementation steps — for example: designing a new system, implementing a multi-part feature, refactoring across many files, or anything that realistically warrants its own implementation plan.
+
+For each flagged task, prompt the user (one at a time, not all at once):
+
+> **Task:** "[task text]"
+> This task looks too complex to batch in a todo list. How would you like to handle it?
+> **(a) Save as plan** — extract it into a dedicated plan file
+> **(b) Defer** — mark it skipped for now
+> **(c) Keep anyway** — leave it in the list and execute it
+
+Handle the response:
+
+- **(a) Save as plan** — Attempt to invoke the `superpowers:writing-plans` skill. If it is unavailable or fails, create a stub at `.claude/plans/<task-name>.md` containing the task description and a note that it needs full planning. Then mark the item in `todo.md` as `- [→] task text — moved to plan: .claude/plans/<task-name>.md` so it is skipped during execution.
+- **(b) Defer** — Mark it in `todo.md` as `- [~] task text — deferred: too complex`. It will be skipped during execution.
+- **(c) Keep anyway** — Leave the item unchanged. It will be executed normally in Step 4.
+
+Once all flagged tasks are resolved, proceed to Step 4.
+
+## Step 4: Execute Each Task
 
 For every task:
 
@@ -42,7 +62,7 @@ Stop immediately. Report:
 
 Then ask: **"Should I continue to the next task, or abort the todo list?"** Wait for the user's answer before doing anything else. If they say abort, stop. If they say continue, mark the failed task with a note (e.g., `- [!] task text — failed: reason`) and move on.
 
-## Step 4: Archive the Completed List
+## Step 5: Archive the Completed List
 
 Once all tasks are checked off:
 
