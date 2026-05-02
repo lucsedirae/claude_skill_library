@@ -1,37 +1,89 @@
-Launch 3 Explore agents in parallel. One lens each. Observations only, `file:line` cited.
+# Analysis Lenses
 
-## Agent 1 — SOLID (backend, `backend/app/`)
-For each principle, sample breadth before concluding. Report violations with file:line and a one-sentence smell description.
-- SRP — units with >1 reason to change (HTTP + persistence + rules + formatting mixed).
-- OCP — new entity/status/role requires editing, not extending. Type-switches and isinstance chains are tells.
-- LSP — subclasses/implementations that narrow preconditions, widen postconditions, or raise unexpected errors.
-- ISP — consumers depending on surface area they don't use. Fat bases, catch-all utility modules.
-- DIP — high-level modules importing concrete low-level (DB session, ORM, HTTP client) instead of receiving abstractions.
+Before launching agents, read `docs/code-quality/stack-discovery.md` and extract the backend root, frontend root, test roots, asset directories, migration directories, API client path, and test commands. If the file is missing, abort and return to step 0.
+
+Launch 4 Explore agents in parallel. Pass each agent its relevant paths from the discovery file. Observations only — `file:line` cited. No prescriptions.
+
+---
+
+## Agent 1 — SOLID (backend)
+**Path**: backend root from stack discovery.
+
+For each principle, sample breadth before concluding. Report violations with `file:line` and a one-sentence smell description.
+
+- **SRP** — units with >1 reason to change (HTTP handling + persistence + business rules + formatting mixed in one place).
+- **OCP** — adding a new entity/status/role requires editing existing code, not extending it. Type-switches and isinstance/switch chains are tells.
+- **LSP** — subclasses or interface implementations that narrow preconditions, widen postconditions, or raise errors callers don't expect.
+- **ISP** — consumers forced to depend on surface area they don't use. Fat base classes, catch-all utility modules.
+- **DIP** — high-level modules directly importing concrete low-level concerns (DB session, ORM model, HTTP client) instead of receiving abstractions.
 
 **Verification rule**: Before reporting any finding, read the full function or class body at the cited line. Do not infer a violation from a file name, directory placement, or function signature alone. If the code does not contain the smell when read in full, discard the finding.
 
-## Agent 2 — SOLID (frontend, `frontend/src/`)
+---
+
+## Agent 2 — SOLID (frontend)
+**Path**: frontend root from stack discovery.
+
 Same principles, frontend idiom:
-- SRP — components that fetch + transform + validate + render; hooks owning unrelated state.
-- OCP — adding a field/entity/status requires touching N files in lockstep.
-- LSP — wrappers that silently change the contract callers expect.
-- ISP — prop interfaces with one-caller optionals; contexts exposing everything.
-- DIP — components importing API functions directly instead of receiving them.
-Also: is client-side state ownership (local / hook / server cache) legible from code alone?
+
+- **SRP** — components that fetch + transform + validate + render in one place; hooks owning unrelated state.
+- **OCP** — adding a field/entity/status requires touching N files in lockstep.
+- **LSP** — wrappers that silently change the contract callers expect.
+- **ISP** — prop interfaces with optionals only one caller uses; contexts that expose everything to everyone.
+- **DIP** — components importing API functions or data sources directly instead of receiving them as props or via context.
+
+Also: is client-side state ownership (local state / hook / server cache) legible from the code alone?
 
 **Verification rule**: Before claiming a concern is not separated, explicitly state what IS already in a separate file or hook. Only report an SRP violation if the unseparated logic is actually present in the cited file — not merely absent from a dedicated module.
 
+---
+
 ## Agent 3 — Agentic discoverability
-Answer with evidence: "If an agent added a new entity (routes, service, repo, frontend list+form+detail) tomorrow, what would it get wrong, and why?"
-- Pattern legibility — can the canonical pattern for any concern be inferred from one file?
-- Naming truthfulness — do filenames/class names match their contents?
-- Convergence vs. divergence — how many variants exist per concern? Which dominates by count?
-- Stale artifacts — files/docs describing something other than the current codebase.
-- Doc truthfulness — README/CLAUDE.md/AGENTS.md vs. reality.
-- Recent drift — skim `git log`; has recent work diverged without doc updates?
+Answer with evidence: "If an agent added a new entity tomorrow (routes, service, repo, frontend list + form + detail), what would it get wrong, and why?"
 
-**Route orphan rule**: When flagging a backend route as potentially stale or orphaned, check the corresponding `frontend/src/api/` file before reporting. If the frontend calls that route method (GET/POST/PATCH/DELETE), it is not orphaned — do not report it.
-
-**Recent work rule**: Run `git log --oneline -15`. If a finding touches code committed in the last 5 commits, note this explicitly so the synthesizer can assess whether it is regression or surviving debt.
+- **Pattern legibility** — can the canonical pattern for any concern be inferred from reading one representative file?
+- **Naming truthfulness** — do filenames and class names match their actual contents?
+- **Convergence vs. divergence** — how many variants exist per concern? Which dominates by count?
+- **Stale artifacts** — files or docs describing something other than the current codebase.
+- **Doc truthfulness** — compare `README.md`, `CLAUDE.md`, `AGENTS.md` against reality.
+- **Recent drift** — skim `git log --oneline -15`; has recent work diverged without doc updates?
 
 Do not label anything "canonical" unless the code has clearly converged on it.
+
+---
+
+## Agent 4 — Orphaned artifacts
+**Paths**: all source roots, test roots, asset directories, and migration directories from stack discovery. Also use the API client path for route cross-referencing.
+
+Goal: find anything no longer actively used by the running application. Prioritize evidence over suspicion — only report what you can cite.
+
+### Routes
+- List all backend route definitions (`file:line`).
+- For each, search the API client layer (path from stack discovery) for a corresponding call. If no call exists anywhere in the frontend or API client source, flag as potentially orphaned.
+- **Exceptions**: routes that are clearly infrastructure (health checks, metrics, webhooks called by third parties) are not orphaned — note them but do not flag as issues.
+
+### Dead code
+- Exported functions, classes, or modules with no import sites anywhere in the project (grep/glob the full source tree).
+- Commented-out code blocks longer than 5 lines.
+- Feature-flagged code where the flag is hardcoded to off, or the flag name no longer appears in any config or env file.
+
+### Orphaned files
+- Source files not imported or required by any other file and not an entry point.
+- Config files referencing paths, commands, or services that no longer exist.
+- Migration files for tables or entities that no longer exist in the current schema.
+
+### Orphaned tests
+- Test files whose subject module has been deleted or renamed (file no longer at the imported path).
+- Test helpers or fixtures imported by no test file.
+- Tests that pass vacuously: empty test body, `skip` with no resolution date, assertions that can never fail.
+
+### Orphaned assets
+- Static files (images, fonts, icons, CSS) not referenced in any source file or template.
+- Translation / i18n keys defined but never referenced in source.
+- Environment variables declared in `.env.example` but never read anywhere in source.
+
+### Recent work rule
+Run `git log --oneline -15`. If a finding touches code committed in the last 5 commits, note this explicitly — it may be a migration in progress rather than dead code.
+
+### Confirmation rule
+Before flagging anything as orphaned, do a second-pass grep across the full source tree using alternative search terms (partial name, string interpolation patterns). Dynamic references (string interpolation, reflection, `eval`, `require(variable)`) can mask real usage — if you see evidence of dynamic dispatch, downgrade the finding to MEDIUM and note the reason.
