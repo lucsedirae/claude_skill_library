@@ -1,32 +1,45 @@
 # Analysis Lenses
 
-Before launching agents, read `docs/code-quality/stack-discovery.md` and extract the backend root, frontend root, test roots, asset directories, migration directories, API client path, and test commands. If the file is missing, abort and return to step 0.
+Before launching agents, read `docs/code-quality/stack-discovery.md` and extract the backend root, frontend root, test roots, asset directories, migration directories, API client path, and test commands. If the file is missing, abort and return to step 0. Skip any agent whose primary path is recorded as "not present".
 
-Launch 4 Explore agents in parallel. Pass each agent its relevant paths from the discovery file. Observations only — `file:line` cited. No prescriptions.
+Launch up to 4 Explore agents in parallel. Pass each agent its relevant paths from the discovery file. Observations only — `file:line` cited. No prescriptions.
+
+---
+
+## SOLID principles reference
+Apply these to both Agent 1 and Agent 2 using the idiomatic tells for each context below.
+
+| Principle | Core smell |
+|-----------|-----------|
+| **SRP** | Unit has >1 reason to change |
+| **OCP** | Adding entity/status/role requires editing, not extending |
+| **LSP** | Subclass/impl narrows preconditions, widens postconditions, or raises unexpected errors |
+| **ISP** | Consumer depends on surface area it doesn't use |
+| **DIP** | High-level module directly imports concrete low-level concern |
+
+For each principle, sample breadth before concluding. Report violations with `file:line` and a one-sentence smell description.
 
 ---
 
 ## Agent 1 — SOLID (backend)
 **Path**: backend root from stack discovery.
 
-For each principle, sample breadth before concluding. Report violations with `file:line` and a one-sentence smell description.
+Idiomatic tells per principle:
+- **SRP** — HTTP handling + persistence + business rules + formatting mixed in one place.
+- **OCP** — type-switches and isinstance/switch chains that grow with each new case.
+- **LSP** — subclasses or interface implementations that raise errors callers don't expect.
+- **ISP** — fat base classes, catch-all utility modules.
+- **DIP** — direct imports of DB session, ORM model, or HTTP client inside business logic.
 
-- **SRP** — units with >1 reason to change (HTTP handling + persistence + business rules + formatting mixed in one place).
-- **OCP** — adding a new entity/status/role requires editing existing code, not extending it. Type-switches and isinstance/switch chains are tells.
-- **LSP** — subclasses or interface implementations that narrow preconditions, widen postconditions, or raise errors callers don't expect.
-- **ISP** — consumers forced to depend on surface area they don't use. Fat base classes, catch-all utility modules.
-- **DIP** — high-level modules directly importing concrete low-level concerns (DB session, ORM model, HTTP client) instead of receiving abstractions.
-
-**Verification rule**: Before reporting any finding, read the full function or class body at the cited line. Do not infer a violation from a file name, directory placement, or function signature alone. If the code does not contain the smell when read in full, discard the finding.
+**Verification rule**: Before reporting any finding, read the full function or class body at the cited line. Do not infer a violation from a file name, directory placement, or function signature alone. Discard if the smell is absent when read in full.
 
 ---
 
 ## Agent 2 — SOLID (frontend)
 **Path**: frontend root from stack discovery.
 
-Same principles, frontend idiom:
-
-- **SRP** — components that fetch + transform + validate + render in one place; hooks owning unrelated state.
+Idiomatic tells per principle:
+- **SRP** — components that fetch + transform + validate + render; hooks owning unrelated state.
 - **OCP** — adding a field/entity/status requires touching N files in lockstep.
 - **LSP** — wrappers that silently change the contract callers expect.
 - **ISP** — prop interfaces with optionals only one caller uses; contexts that expose everything to everyone.

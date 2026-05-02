@@ -1,4 +1,8 @@
-Synthesize, deduplicate, and rank findings across all four lenses. Use this exact block per finding:
+Synthesize, deduplicate, and rank findings across all four lenses.
+
+**Cross-lens merge rule**: If the same file, module, or pattern appears in findings from multiple agents, merge them into one block. List all applicable lenses and principles in that block's fields. Do not report the same location twice under different headings.
+
+Use this exact block per finding:
 
 ### N. [Title] [HIGH | MEDIUM | LOW]
 **Lens**: SOLID-Backend / SOLID-Frontend / Discoverability / Orphan

@@ -13,14 +13,14 @@ You are in discovery mode. Do not seed agents with named files, known issues, or
 
 **Step 0 — Stack discovery**
 Check for `docs/code-quality/stack-discovery.md` in the project root.
-- **Not found**: run full discovery per [stack-discovery-format.md](stack-discovery-format.md) and write the file.
-- **Found**: re-verify — confirm key source paths still exist as directories, test commands still appear in their source files, and check `git log --oneline -5` for config-touching commits since the last verified date. Update only changed fields and refresh the `## Last verified` timestamp.
+- **Not found**: consult [stack-discovery-format.md](stack-discovery-format.md), run full discovery, and write the file.
+- **Found**: re-verify — confirm key source paths still exist as directories, test commands still appear in their source files, and check `git log --oneline -5` for config-touching commits since the last verified date. Update only changed fields and refresh the `## Last verified` timestamp. Do not consult stack-discovery-format.md unless rewriting the file from scratch.
 
 **Step 1 — Clarify**
 Ask the 3 questions in [questions.md](questions.md). Wait for answers before proceeding.
 
 **Step 2 — Analyze**
-Launch 4 Explore agents in parallel, one per lens in [lenses.md](lenses.md). Pass each agent the relevant paths from `docs/code-quality/stack-discovery.md`. Each agent returns `file:line` observations only — no prescriptions.
+Launch up to 4 Explore agents in parallel, one per lens in [lenses.md](lenses.md). Pass each agent the relevant paths from `docs/code-quality/stack-discovery.md`. Skip any agent whose primary path is recorded as "not present" in the discovery file — note the skip in the report. Each agent returns `file:line` observations only — no prescriptions.
 
 **Step 3 — Report**
 Synthesize findings into a ranked report using the format in [report.md](report.md).
